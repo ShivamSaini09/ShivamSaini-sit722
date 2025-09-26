@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: product-service
-        image: <ACR_NAME>.azurecr.io/product_service:latest
+        image: acrweek10.azurecr.io/product_service:latest
         ports:
         - containerPort: 8000
         env:
