@@ -14,28 +14,28 @@ spec:
         app: product-service
     spec:
       containers:
-      - name: product-service
-        image: acrweek10.azurecr.io/product_service:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: POSTGRES_HOST
-          value: product-db
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: POSTGRES_USER
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: POSTGRES_PASSWORD
-        - name: POSTGRES_DB
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: PRODUCT_DB
+        - name: product-service
+          image: acrweek10.azurecr.io/product_service:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: POSTGRES_HOST
+              value: product-db
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PRODUCT_DB
 ---
 apiVersion: v1
 kind: Service
@@ -43,8 +43,9 @@ metadata:
   name: product-service
   namespace: staging
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
-    - port: 8000
+    - port: 8000       # Service port
+      targetPort: 8000 # Container port
   selector:
     app: product-service

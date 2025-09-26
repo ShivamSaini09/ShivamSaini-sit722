@@ -14,18 +14,18 @@ spec:
         app: order-service
     spec:
       containers:
-      - name: order-service
-        image: acrweek10.azurecr.io/order_service:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: POSTGRES_HOST
-          value: order-db
-        - name: PRODUCT_SERVICE_URL
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: PRODUCT_SERVICE_URL
+        - name: order-service
+          image: acrweek10.azurecr.io/order_service:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: POSTGRES_HOST
+              value: order-db
+            - name: PRODUCT_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PRODUCT_SERVICE_URL
 ---
 apiVersion: v1
 kind: Service
@@ -33,9 +33,9 @@ metadata:
   name: order-service
   namespace: staging
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
-    - port: 8001
-      targetPort: 8000
+    - port: 8001       # External port for accessing service
+      targetPort: 8000 # Container port
   selector:
     app: order-service

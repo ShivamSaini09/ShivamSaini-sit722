@@ -14,18 +14,18 @@ spec:
         app: customer-service
     spec:
       containers:
-      - name: customer-service
-        image: acrweek10.azurecr.io/customer_service:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: POSTGRES_HOST
-          value: customer-db
-        - name: PRODUCT_SERVICE_URL
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: PRODUCT_SERVICE_URL
+        - name: customer-service
+          image: acrweek10.azurecr.io/customer_service:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: POSTGRES_HOST
+              value: customer-db
+            - name: PRODUCT_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PRODUCT_SERVICE_URL
 ---
 apiVersion: v1
 kind: Service
@@ -33,9 +33,9 @@ metadata:
   name: customer-service
   namespace: staging
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
-    - port: 8002
-      targetPort: 8000
+    - port: 8002       # External port
+      targetPort: 8000 # Container port
   selector:
     app: customer-service
