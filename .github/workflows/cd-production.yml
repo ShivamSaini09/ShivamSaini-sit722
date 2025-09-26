@@ -26,36 +26,36 @@ jobs:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
 
       - name: Create production namespace
-        run: kubectl create namespace production --dry-run=client -o yaml | kubectl apply -f -
+        run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Apply ConfigMaps & Secrets (override namespace)
+      - name: Apply ConfigMaps & Secrets
         run: |
-          kubectl apply -f k8s/configmaps.yaml -n production --dry-run=client -o yaml | kubectl apply -n production -f -
-          kubectl apply -f k8s/secrets.yaml -n production --dry-run=client -o yaml | kubectl apply -n production -f -
+          kubectl apply -f k8s/configmaps.yaml -n staging
+          kubectl apply -f k8s/secrets.yaml -n staging
 
       - name: Deploy Databases
         run: |
-          kubectl apply -f k8s/product-db.yaml -n production
-          kubectl apply -f k8s/order-db.yaml -n production
-          kubectl apply -f k8s/customer-db.yaml -n production
+          kubectl apply -f k8s/product-db.yaml -n staging
+          kubectl apply -f k8s/order-db.yaml -n staging
+          kubectl apply -f k8s/customer-db.yaml -n staging
 
       - name: Deploy Services
         run: |
-          kubectl apply -f k8s/product-service.yaml -n production
-          kubectl apply -f k8s/order-service.yaml -n production
-          kubectl apply -f k8s/customer-service.yaml -n production
-          kubectl apply -f k8s/frontend.yaml -n production
+          kubectl apply -f k8s/product-service.yaml -n staging
+          kubectl apply -f k8s/order-service.yaml -n staging
+          kubectl apply -f k8s/customer-service.yaml -n staging
+          kubectl apply -f k8s/frontend.yaml -n staging
 
       - name: Wait for all pods to be ready
         run: |
           for app in product-service order-service customer-service frontend; do
-            for pod in $(kubectl get pods -l app=$app -n production -o name); do
-              kubectl wait --for=condition=ready "$pod" -n production --timeout=300s
+            for pod in $(kubectl get pods -l app=$app -n staging -o name); do
+              kubectl wait --for=condition=ready "$pod" -n staging --timeout=300s
             done
           done
 
       - name: Manual / trivial acceptance tests
         run: |
           echo "Testing frontend..."
-          kubectl run test-client -n production --rm -i --image=curlimages/curl -- \
+          kubectl run test-client -n staging --rm -i --image=curlimages/curl -- \
             curl -s http://frontend:80 || exit 1
