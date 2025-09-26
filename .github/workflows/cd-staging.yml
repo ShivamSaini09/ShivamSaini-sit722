@@ -32,7 +32,9 @@ jobs:
         run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply ConfigMaps & Secrets
-        run: kubectl apply -f k8s/configmaps.yaml -f k8s/secrets.yaml -n staging
+        run: |
+          kubectl apply -f k8s/configmaps.yaml -n staging
+          kubectl apply -f k8s/secrets.yaml -n staging
 
       - name: Deploy Databases
         run: |
@@ -47,13 +49,24 @@ jobs:
           kubectl apply -f k8s/customer-service.yaml -n staging
           kubectl apply -f k8s/frontend.yaml -n staging
 
-      - name: Wait for all pods to be ready
+      - name: Wait for pods (Product)
         run: kubectl wait --for=condition=ready pod -l app=product-service -n staging --timeout=120s
+
+      - name: Wait for pods (Order)
+        run: kubectl wait --for=condition=ready pod -l app=order-service -n staging --timeout=120s
+
+      - name: Wait for pods (Customer)
+        run: kubectl wait --for=condition=ready pod -l app=customer-service -n staging --timeout=120s
+
+      - name: Wait for pods (Frontend)
+        run: kubectl wait --for=condition=ready pod -l app=frontend -n staging --timeout=120s
 
       - name: Manual / trivial acceptance tests
         run: |
-          echo "Perform simple acceptance tests, e.g., curl frontend endpoint"
-          kubectl run test-client -n staging --rm -i --image=curlimages/curl -- curl -s http://frontend:80
+          echo "Running trivial acceptance test against frontend..."
+          kubectl run test-client -n staging --rm -i --image=curlimages/curl -- \
+            curl -s http://frontend:80 || exit 1
 
       - name: Destroy temporary staging environment
-        run: kubectl delete namespace staging
+        if: always()
+        run: kubectl delete namespace staging --ignore-not-found=true

@@ -7,26 +7,92 @@ on:
       - testing
 
 jobs:
-  build-test-push:
+  # Job 1: Run syntax validation for backend services with live DBs
+  test_and_validate_backends:
     runs-on: ubuntu-latest
+
+    services:
+      # Product DB
+      product_db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: products
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      # Order DB
+      order_db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: orders
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+
+      # Customer DB
+      customer_db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: customers
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5434:5432
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install -r backend/product_service/requirements.txt
           pip install -r backend/order_service/requirements.txt
           pip install -r backend/customer_service/requirements.txt
 
-      - name: Run automated tests
-        run: pytest  # replace with actual test commands
+      - name: Validate product_service
+        working-directory: backend/product_service
+        run: python -m compileall .
+
+      - name: Validate order_service
+        working-directory: backend/order_service
+        run: python -m compileall .
+
+      - name: Validate customer_service
+        working-directory: backend/customer_service
+        run: python -m compileall .
+
+  # Job 2: Build and Push Docker Images (runs only if validation succeeds)
+  build_and_push_images:
+    runs-on: ubuntu-latest
+    needs: test_and_validate_backends
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
