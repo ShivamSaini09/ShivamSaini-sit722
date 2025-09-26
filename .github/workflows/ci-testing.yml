@@ -108,7 +108,7 @@ jobs:
 
       - name: Build & Push Order Service Image
         run: |
-          docker build --platform linux/amd64 -t ${{ secrets.ACR_LOGIN_SERVER }}/order_service:latest./backend/order_service
+          docker build --platform linux/amd64 -t ${{ secrets.ACR_LOGIN_SERVER }}/order_service:latest ./backend/order_service
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/order_service:latest
 
       - name: Build & Push Customer Service Image
