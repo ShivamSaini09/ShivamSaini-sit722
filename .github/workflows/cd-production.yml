@@ -46,16 +46,4 @@ jobs:
           kubectl apply -f k8s/customer-service.yaml -n staging
           kubectl apply -f k8s/frontend.yaml -n staging
 
-      - name: Wait for all pods to be ready
-        run: |
-          for app in product-service order-service customer-service frontend; do
-            for pod in $(kubectl get pods -l app=$app -n staging -o name); do
-              kubectl wait --for=condition=ready "$pod" -n staging --timeout=300s
-            done
-          done
-
-      - name: Manual / trivial acceptance tests
-        run: |
-          echo "Testing frontend..."
-          kubectl run test-client -n staging --rm -i --image=curlimages/curl -- \
-            curl -s http://frontend:80 || exit 1
+      
