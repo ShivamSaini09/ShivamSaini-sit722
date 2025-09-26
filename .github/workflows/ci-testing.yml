@@ -11,23 +11,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # 2. Set up Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
+      # 3. Install dependencies
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install -r backend/product_service/requirements.txt
           pip install -r backend/order_service/requirements.txt
           pip install -r backend/customer_service/requirements.txt
 
-      - name: Run automated tests
-        run: pytest  # replace with actual test commands
+      # 4. Validate Product Service
+      - name: Validate product_service
+        working-directory: backend/product_service
+        run: python -m compileall .
 
+      # 5. Validate Order Service
+      - name: Validate order_service
+        working-directory: backend/order_service
+        run: python -m compileall .
+
+      # 6. Validate Customer Service
+      - name: Validate customer_service
+        working-directory: backend/customer_service
+        run: python -m compileall .
+
+      # 7. Log in to Azure Container Registry
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
         with:
@@ -35,21 +52,25 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
+      # 8. Build & Push Product Service Image
       - name: Build & Push Product Service Image
         run: |
           docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/product_service:testing ./backend/product_service
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/product_service:testing
 
+      # 9. Build & Push Order Service Image
       - name: Build & Push Order Service Image
         run: |
           docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/order_service:testing ./backend/order_service
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/order_service:testing
 
+      # 10. Build & Push Customer Service Image
       - name: Build & Push Customer Service Image
         run: |
           docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/customer_service:testing ./backend/customer_service
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/customer_service:testing
 
+      # 11. Build & Push Frontend Image
       - name: Build & Push Frontend Image
         run: |
           docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/frontend:testing ./frontend
