@@ -1,6 +1,6 @@
 name: CI - Build, Test & Push Images
 
-# Trigger: push to testing branch 
+# Trigger: push to branch testing 
 on:
   push:
     branches:
