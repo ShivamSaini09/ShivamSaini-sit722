@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: staging
+data:
+  PRODUCT_DB: products
+  ORDER_DB: orders
+  CUSTOMER_DB: customers
+  PRODUCT_SERVICE_URL: "http://product-service:8000"

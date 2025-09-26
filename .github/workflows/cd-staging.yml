@@ -1,0 +1,59 @@
+name: CD - Staging Deployment
+
+# Trigger: after CI completes successfully
+on:
+  workflow_run:
+    workflows: ["CI - Build, Test & Push Images"]
+    types:
+      - completed
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+
+      - name: Create staging namespace
+        run: kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply ConfigMaps & Secrets
+        run: kubectl apply -f k8s/configmaps.yaml -f k8s/secrets.yaml -n staging
+
+      - name: Deploy Databases
+        run: |
+          kubectl apply -f k8s/product-db.yaml -n staging
+          kubectl apply -f k8s/order-db.yaml -n staging
+          kubectl apply -f k8s/customer-db.yaml -n staging
+
+      - name: Deploy Services
+        run: |
+          kubectl apply -f k8s/product-service.yaml -n staging
+          kubectl apply -f k8s/order-service.yaml -n staging
+          kubectl apply -f k8s/customer-service.yaml -n staging
+          kubectl apply -f k8s/frontend.yaml -n staging
+
+      - name: Wait for all pods to be ready
+        run: kubectl wait --for=condition=ready pod -l app=product-service -n staging --timeout=120s
+
+      - name: Manual / trivial acceptance tests
+        run: |
+          echo "Perform simple acceptance tests, e.g., curl frontend endpoint"
+          kubectl run test-client -n staging --rm -i --image=curlimages/curl -- curl -s http://frontend:80
+
+      - name: Destroy temporary staging environment
+        run: kubectl delete namespace staging

@@ -1,0 +1,56 @@
+name: CI - Build, Test & Push Images
+
+# Trigger: push to testing branch
+on:
+  push:
+    branches:
+      - testing
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/product_service/requirements.txt
+          pip install -r backend/order_service/requirements.txt
+          pip install -r backend/customer_service/requirements.txt
+
+      - name: Run automated tests
+        run: pytest  # replace with actual test commands
+
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build & Push Product Service Image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/product_service:testing ./backend/product_service
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/product_service:testing
+
+      - name: Build & Push Order Service Image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/order_service:testing ./backend/order_service
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/order_service:testing
+
+      - name: Build & Push Customer Service Image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/customer_service:testing ./backend/customer_service
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/customer_service:testing
+
+      - name: Build & Push Frontend Image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/frontend:testing ./frontend
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/frontend:testing
