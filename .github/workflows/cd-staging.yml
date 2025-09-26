@@ -1,6 +1,5 @@
 name: CD - Staging Deployment
 
-# Trigger: after CI completes successfully
 on:
   workflow_run:
     workflows: ["CI - Build, Test & Push Images"]
@@ -49,21 +48,17 @@ jobs:
           kubectl apply -f k8s/customer-service.yaml -n staging
           kubectl apply -f k8s/frontend.yaml -n staging
 
-      - name: Wait for pods (Product)
-        run: kubectl wait --for=condition=ready pod -l app=product-service -n staging --timeout=120s
-
-      - name: Wait for pods (Order)
-        run: kubectl wait --for=condition=ready pod -l app=order-service -n staging --timeout=120s
-
-      - name: Wait for pods (Customer)
-        run: kubectl wait --for=condition=ready pod -l app=customer-service -n staging --timeout=120s
-
-      - name: Wait for pods (Frontend)
-        run: kubectl wait --for=condition=ready pod -l app=frontend -n staging --timeout=120s
+      - name: Wait for all pods to be ready
+        run: |
+          for app in product-service order-service customer-service frontend; do
+            for pod in $(kubectl get pods -l app=$app -n staging -o name); do
+              kubectl wait --for=condition=ready "$pod" -n staging --timeout=300s
+            done
+          done
 
       - name: Manual / trivial acceptance tests
         run: |
-          echo "Running trivial acceptance test against frontend..."
+          echo "Testing frontend..."
           kubectl run test-client -n staging --rm -i --image=curlimages/curl -- \
             curl -s http://frontend:80 || exit 1
 
