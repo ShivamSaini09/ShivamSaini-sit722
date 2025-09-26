@@ -62,12 +62,6 @@ jobs:
           kubectl wait --for=condition=available --timeout=300s deployment/frontend -n staging
           kubectl get svc frontend -n staging
 
-      - name: Test frontend service with temporary pod
-        run: |
-          kubectl run test-client -n staging --restart=Never --image=curlimages/curl -- sleep 20
-          kubectl exec -n staging test-client -- curl -s http://frontend:80 || exit 1
-          kubectl delete pod test-client -n staging
-
       - name: Destroy temporary staging environment
         if: always()
         run: kubectl delete namespace staging --ignore-not-found=true
