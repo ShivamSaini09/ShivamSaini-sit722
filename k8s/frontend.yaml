@@ -14,10 +14,10 @@ spec:
         app: frontend
     spec:
       containers:
-      - name: frontend
-        image: acrweek10.azurecr.io/frontend:latest
-        ports:
-        - containerPort: 80
+        - name: frontend
+          image: acrweek10.azurecr.io/frontend:latest
+          ports:
+            - containerPort: 80
 ---
 apiVersion: v1
 kind: Service
@@ -25,10 +25,9 @@ metadata:
   name: frontend
   namespace: staging
 spec:
-  type: NodePort
+  type: LoadBalancer
   ports:
-    - port: 80
-      targetPort: 80
-      nodePort: 30000
+    - port: 80          # External and internal service port
+      targetPort: 80    # Container port
   selector:
     app: frontend

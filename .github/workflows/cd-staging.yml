@@ -56,11 +56,17 @@ jobs:
             done
           done
 
-      - name: Manual / trivial acceptance tests
+      - name: Wait for frontend LoadBalancer IP
         run: |
-          echo "Testing frontend..."
-          kubectl run test-client -n staging --rm -i --image=curlimages/curl -- \
-            curl -s http://frontend:80 || exit 1
+          echo "Waiting for frontend service LoadBalancer IP..."
+          kubectl wait --for=condition=available --timeout=300s deployment/frontend -n staging
+          kubectl get svc frontend -n staging
+
+      - name: Test frontend service with temporary pod
+        run: |
+          kubectl run test-client -n staging --restart=Never --image=curlimages/curl -- sleep 20
+          kubectl exec -n staging test-client -- curl -s http://frontend:80 || exit 1
+          kubectl delete pod test-client -n staging
 
       - name: Destroy temporary staging environment
         if: always()
