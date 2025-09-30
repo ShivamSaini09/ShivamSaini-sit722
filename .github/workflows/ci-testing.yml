@@ -7,7 +7,6 @@ on:
       - testing
 
 jobs:
-  # Job 1: Run syntax validation for backend services with live DBs
   test_and_validate_backends:
     runs-on: ubuntu-latest
 
