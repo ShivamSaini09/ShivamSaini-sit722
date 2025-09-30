@@ -39,7 +39,7 @@ jobs:
           kubectl apply -f k8s/order-db.yaml -n production
           kubectl apply -f k8s/customer-db.yaml -n production
 
-      - name: Deploy Backend Services 
+      - name: Deploy Backend Services
         run: |
           kubectl apply -f k8s/product-service.yaml -n production
           kubectl apply -f k8s/order-service.yaml -n production
@@ -69,6 +69,13 @@ jobs:
           sed -i "s|const PRODUCT_API_BASE_URL = .*|const PRODUCT_API_BASE_URL = 'http://${PRODUCT_IP}:8000';|" frontend/main.js
           sed -i "s|const ORDER_API_BASE_URL = .*|const ORDER_API_BASE_URL = 'http://${ORDER_IP}:8001';|" frontend/main.js
           sed -i "s|const CUSTOMER_API_BASE_URL = .*|const CUSTOMER_API_BASE_URL = 'http://${CUSTOMER_IP}:8002';|" frontend/main.js
+
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build & Push Frontend Image
         run: |
