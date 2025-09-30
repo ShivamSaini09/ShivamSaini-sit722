@@ -66,10 +66,9 @@ jobs:
 
       - name: Patch frontend main.js with new service IPs
         run: |
-          # macOS-compatible sed
-          sed -i '' "s|const PRODUCT_API_BASE_URL = .*|const PRODUCT_API_BASE_URL = 'http://${PRODUCT_IP}:8000';|" frontend/main.js
-          sed -i '' "s|const ORDER_API_BASE_URL = .*|const ORDER_API_BASE_URL = 'http://${ORDER_IP}:8001';|" frontend/main.js
-          sed -i '' "s|const CUSTOMER_API_BASE_URL = .*|const CUSTOMER_API_BASE_URL = 'http://${CUSTOMER_IP}:8002';|" frontend/main.js
+          sed -i "s|const PRODUCT_API_BASE_URL = .*|const PRODUCT_API_BASE_URL = 'http://${PRODUCT_IP}:8000';|" frontend/main.js
+          sed -i "s|const ORDER_API_BASE_URL = .*|const ORDER_API_BASE_URL = 'http://${ORDER_IP}:8001';|" frontend/main.js
+          sed -i "s|const CUSTOMER_API_BASE_URL = .*|const CUSTOMER_API_BASE_URL = 'http://${CUSTOMER_IP}:8002';|" frontend/main.js
 
       - name: Build & Push Frontend Image
         run: |
