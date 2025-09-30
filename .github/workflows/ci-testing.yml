@@ -1,122 +1,87 @@
-name: CI - Build, Test & Push Images
+name: CD - Production Deployment
 
-# Trigger: push to branch testing 
-# A Chnage
 on:
   push:
     branches:
-      - testing
+      - main
 
 jobs:
-  test_and_validate_backends:
+  deploy-production:
     runs-on: ubuntu-latest
-
-    services:
-      # Product DB
-      product_db:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: products
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-      # Order DB
-      order_db:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: orders
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5433:5432
-
-      # Customer DB
-      customer_db:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: customers
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5434:5432
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Azure Login
+        uses: azure/login@v1
         with:
-          python-version: "3.10"
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r backend/product_service/requirements.txt
-          pip install -r backend/order_service/requirements.txt
-          pip install -r backend/customer_service/requirements.txt
-
-      - name: Validate product_service
-        working-directory: backend/product_service
-        run: python -m compileall .
-
-      - name: Validate order_service
-        working-directory: backend/order_service
-        run: python -m compileall .
-
-      - name: Validate customer_service
-        working-directory: backend/customer_service
-        run: python -m compileall .
-
-  # Job 2: Build and Push Docker Images (runs only if validation succeeds)
-  build_and_push_images:
-    runs-on: ubuntu-latest
-    needs: test_and_validate_backends
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v1
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
         with:
-          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
 
-      - name: Build & Push Product Service Image
-        run: |
-          docker build --platform linux/amd64 -t ${{ secrets.ACR_LOGIN_SERVER }}/product_service:latest ./backend/product_service
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/product_service:latest
+      - name: Create production namespace
+        run: kubectl create namespace production --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Build & Push Order Service Image
+      - name: Apply ConfigMaps & Secrets
         run: |
-          docker build --platform linux/amd64 -t ${{ secrets.ACR_LOGIN_SERVER }}/order_service:latest ./backend/order_service
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/order_service:latest
+          kubectl apply -f k8s/configmaps.yaml -n production
+          kubectl apply -f k8s/secrets.yaml -n production
 
-      - name: Build & Push Customer Service Image
+      - name: Deploy Databases
         run: |
-          docker build --platform linux/amd64 -t ${{ secrets.ACR_LOGIN_SERVER }}/customer_service:latest ./backend/customer_service
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/customer_service:latest
+          kubectl apply -f k8s/product-db.yaml -n production
+          kubectl apply -f k8s/order-db.yaml -n production
+          kubectl apply -f k8s/customer-db.yaml -n production
+
+      - name: Deploy Backend Services 
+        run: |
+          kubectl apply -f k8s/product-service.yaml -n production
+          kubectl apply -f k8s/order-service.yaml -n production
+          kubectl apply -f k8s/customer-service.yaml -n production
+
+      - name: Wait for all backend pods to be ready
+        run: |
+          for app in product-service order-service customer-service; do
+            for pod in $(kubectl get pods -l app=$app -n production -o name); do
+              kubectl wait --for=condition=ready "$pod" -n production --timeout=300s
+            done
+          done
+
+      - name: Get external IPs of services
+        id: get-ips
+        run: |
+          PRODUCT_IP=$(kubectl get svc product-service -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          ORDER_IP=$(kubectl get svc order-service -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          CUSTOMER_IP=$(kubectl get svc customer-service -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+          echo "PRODUCT_IP=$PRODUCT_IP" >> $GITHUB_ENV
+          echo "ORDER_IP=$ORDER_IP" >> $GITHUB_ENV
+          echo "CUSTOMER_IP=$CUSTOMER_IP" >> $GITHUB_ENV
+
+      - name: Patch frontend main.js with new service IPs
+        run: |
+          # macOS-compatible sed
+          sed -i '' "s|const PRODUCT_API_BASE_URL = .*|const PRODUCT_API_BASE_URL = 'http://${PRODUCT_IP}:8000';|" frontend/main.js
+          sed -i '' "s|const ORDER_API_BASE_URL = .*|const ORDER_API_BASE_URL = 'http://${ORDER_IP}:8001';|" frontend/main.js
+          sed -i '' "s|const CUSTOMER_API_BASE_URL = .*|const CUSTOMER_API_BASE_URL = 'http://${CUSTOMER_IP}:8002';|" frontend/main.js
 
       - name: Build & Push Frontend Image
         run: |
           docker build --platform linux/amd64 -t ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest ./frontend
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
+
+      - name: Deploy Frontend
+        run: |
+          kubectl set image deployment/frontend frontend=${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest -n production
+          kubectl rollout status deployment/frontend -n production
+
+      - name: Wait for frontend to be ready
+        run: |
+          kubectl wait --for=condition=available --timeout=300s deployment/frontend -n production
+          kubectl get svc frontend -n production
