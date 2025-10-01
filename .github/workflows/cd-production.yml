@@ -39,20 +39,56 @@ jobs:
           kubectl apply -f k8s/order-db.yaml -n production
           kubectl apply -f k8s/customer-db.yaml -n production
 
-      - name: Deploy Backend & Frontend Services
+      - name: Deploy Backend Services
         run: |
           kubectl apply -f k8s/product-service.yaml -n production
           kubectl apply -f k8s/order-service.yaml -n production
           kubectl apply -f k8s/customer-service.yaml -n production
-          kubectl apply -f k8s/frontend.yaml -n production
 
-      - name: Wait for all pods to be ready
+      - name: Wait for backend pods to be ready
         run: |
-          for app in product-service order-service customer-service frontend; do
+          for app in product-service order-service customer-service; do
+            echo "Waiting for pods with label app=$app"
             for pod in $(kubectl get pods -l app=$app -n production -o name); do
               kubectl wait --for=condition=ready "$pod" -n production --timeout=300s
             done
           done
+
+      - name: Wait for backend services to get External IPs
+        run: |
+          for svc in product-service order-service customer-service; do
+            echo "Waiting for $svc external IP..."
+            for i in {1..30}; do
+              ip=$(kubectl get svc $svc -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+              if [ -n "$ip" ]; then
+                echo "$svc external IP assigned: $ip"
+                break
+              fi
+              echo "Still waiting for $svc external IP..."
+              sleep 10
+            done
+          done
+
+      - name: Get Backend External IPs
+        id: get-ext-ips
+        run: |
+          echo "product_api_ip=$(kubectl get svc product-service -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" >> $GITHUB_ENV
+          echo "order_api_ip=$(kubectl get svc order-service -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" >> $GITHUB_ENV
+          echo "customer_api_ip=$(kubectl get svc customer-service -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" >> $GITHUB_ENV
+
+      - name: Inject Backend IPs into Frontend main.js
+        run: |
+          echo "Injecting External IPs into frontend/main.js"
+          sed -i "s|_PRODUCT_API_URL_|http://${product_api_ip}:8000|g" frontend/main.js
+          sed -i "s|_ORDER_API_URL_|http://${order_api_ip}:8001|g" frontend/main.js
+          sed -i "s|_CUSTOMER_API_URL_|http://${customer_api_ip}:8002|g" frontend/main.js
+
+          echo "--- Modified main.js content ---"
+          cat frontend/main.js
+          echo "---------------------------------"
+
+      - name: Deploy Frontend
+        run: kubectl apply -f k8s/frontend.yaml -n production
 
       - name: Wait for frontend to be ready
         run: |
