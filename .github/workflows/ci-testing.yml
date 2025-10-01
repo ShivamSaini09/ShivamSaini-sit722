@@ -1,6 +1,7 @@
 name: CI - Build, Test & Push Images
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - testing
