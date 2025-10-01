@@ -71,13 +71,19 @@ jobs:
 
       - name: Run tests - product_service
         working-directory: backend/product_service
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/products
         run: pytest -v --maxfail=1 --disable-warnings
 
       - name: Run tests - order_service
         working-directory: backend/order_service
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5433/orders 
         run: pytest -v --maxfail=1 --disable-warnings
 
       - name: Run tests - customer_service
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/customers
         working-directory: backend/customer_service
         run: pytest -v --maxfail=1 --disable-warnings
 
