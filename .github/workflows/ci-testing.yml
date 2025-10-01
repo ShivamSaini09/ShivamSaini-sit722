@@ -1,7 +1,5 @@
 name: CI - Build, Test & Push Images
 
-# Trigger: push to branch testing 
-# A Chnage
 on:
   push:
     branches:
@@ -12,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # Product DB
       product_db:
         image: postgres:15
         env:
@@ -27,7 +24,6 @@ jobs:
         ports:
           - 5432:5432
 
-      # Order DB
       order_db:
         image: postgres:15
         env:
@@ -42,7 +38,6 @@ jobs:
         ports:
           - 5433:5432
 
-      # Customer DB
       customer_db:
         image: postgres:15
         env:
@@ -69,26 +64,26 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          pip install pytest
           pip install -r backend/product_service/requirements.txt
           pip install -r backend/order_service/requirements.txt
           pip install -r backend/customer_service/requirements.txt
 
-      - name: Validate product_service
+      - name: Run tests - product_service
         working-directory: backend/product_service
-        run: python -m compileall .
+        run: pytest -v --maxfail=1 --disable-warnings
 
-      - name: Validate order_service
+      - name: Run tests - order_service
         working-directory: backend/order_service
-        run: python -m compileall .
+        run: pytest -v --maxfail=1 --disable-warnings
 
-      - name: Validate customer_service
+      - name: Run tests - customer_service
         working-directory: backend/customer_service
-        run: python -m compileall .
+        run: pytest -v --maxfail=1 --disable-warnings
 
-  # Job 2: Build and Push Docker Images (runs only if validation succeeds)
   build_and_push_images:
     runs-on: ubuntu-latest
-    needs: test_and_validate_backends
+    needs: test_and_validate_backends   # only runs if tests pass
 
     steps:
       - name: Checkout code
