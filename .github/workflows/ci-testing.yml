@@ -16,14 +16,15 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: products
+        # Make pg_isready available so the service is healthy before tests run
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
         ports:
           - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
+  
       order_db:
         image: postgres:15
         env:
@@ -33,10 +34,10 @@ jobs:
         ports:
           - 5433:5432
         options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
       customer_db:
         image: postgres:15
@@ -69,22 +70,38 @@ jobs:
           pip install -r backend/order_service/requirements.txt
           pip install -r backend/customer_service/requirements.txt
 
-      - name: Run tests - product_service
+      #  Run tests for product service  
+      - name: Run product_service tests
         working-directory: backend/product_service
         env:
-          DATABASE_URL: postgresql://postgres:postgres@product_db:5432/products
-        run: pytest -v --maxfail=1 --disable-warnings
-
-      - name: Run tests - order_service
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: products
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        run: |
+          pytest tests --maxfail=1 --disable-warnings -q
+      
+      #  Run tests for order service
+      - name: Run order_service tests
         working-directory: backend/order_service
         env:
-          DATABASE_URL: postgresql://postgres:postgres@order_db:5432/orders
-        run: pytest -v --maxfail=1 --disable-warnings
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5433
+          POSTGRES_DB: orders
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        run: |
+          pytest tests --maxfail=1 --disable-warnings -q
 
       - name: Run tests - customer_service
         working-directory: backend/customer_service
         env:
-          DATABASE_URL: postgresql://postgres:postgres@customer_db:5432/customers
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5434
+          POSTGRES_DB: customers
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
         run: pytest -v --maxfail=1 --disable-warnings
 
   build_and_push_images:
