@@ -15,6 +15,7 @@ spec:
       containers:
         - name: frontend
           image: acrweek10.azurecr.io/frontend:latest
+          imagePullPolicy: Always   # <-- ensures latest image is always pulled
           ports:
             - containerPort: 80
 ---

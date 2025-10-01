@@ -15,6 +15,7 @@ spec:
       containers:
         - name: customer-service
           image: acrweek10.azurecr.io/customer_service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           env:
