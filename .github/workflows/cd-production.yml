@@ -1,6 +1,7 @@
 name: CD - Production Deployment
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
